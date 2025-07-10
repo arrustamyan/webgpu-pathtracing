@@ -1,3 +1,5 @@
+import { vec3cross, vec3dot, vec3sub } from "./math";
+
 const MAX_TRIANGLES_PER_NODE = 1; // Better leaf size
 
 class AABB {
@@ -56,6 +58,10 @@ function computeCentroid(triangle) {
   ));
 }
 
+const lookFrom = [0.0, 3.5, 7.0];
+const lookAt = [0, 0, 0];
+const cameraDirection = vec3sub(lookAt, lookFrom);
+
 export function constructAABB(geometries, indices) {
   const node = {}
   const nodeAABB = new AABB()
@@ -67,6 +73,15 @@ export function constructAABB(geometries, indices) {
     const p0 = [geometries[k], geometries[k + 1], geometries[k + 2]]
     const p1 = [geometries[k + 8], geometries[k + 9], geometries[k + 10]]
     const p2 = [geometries[k + 16], geometries[k + 17], geometries[k + 18]]
+
+    const normal = vec3cross(vec3sub(p1, p0), vec3sub(p2, p0));
+    const dot = vec3dot(normal, cameraDirection);
+
+    if (dot > 0) {
+      continue;
+    }
+
+    // console.log(`Triangle ${i}: normal = [${normal}], dot = ${dot}`);
 
     const triangle = [p0, p1, p2]
     const box = computeTriangleBounds(triangle)

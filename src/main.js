@@ -56,11 +56,13 @@ let positions = new Float32Array(triangles)
 
 const indices = new Uint32Array(Array.from({ length: triangles.length / 24 }, (_, i) => i))
 
+const now = performance.now()
 const aabbTree = constructAABB(triangles, indices);
+console.log('AABB tree constructed in', performance.now() - now, 'ms')
 const aabb = new Float32Array(convertAABBTreeToArray(aabbTree));
+console.log('AABB buffer constructed in', performance.now() - now, 'ms')
 
-console.log('Tree:', aabbTree);
-console.log('AABB Tree:', aabb);
+console.log('Tree:', aabb);
 
 const adapter = await navigator.gpu?.requestAdapter()
 const device = await adapter?.requestDevice()
@@ -215,10 +217,9 @@ function render() {
   device.queue.submit([commandBuffer])
   device.queue.onSubmittedWorkDone().then(() => {
     // After the work is done, we can request the next frame
-    // if (sampleCount < 10000) {
-    //   render();
-    // }
-    requestAnimationFrame(render)
+    if (sampleCount <= 100) {
+      requestAnimationFrame(render)
+    }
     console.log('Frame rendered', performance.now() - now, 'ms')
   })
 }
