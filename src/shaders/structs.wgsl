@@ -17,6 +17,17 @@ struct Triangle {
   _5: vec2f,
 }
 
+struct AABBNode {
+  min: vec3f,
+  _1: f32,
+  max: vec3f,
+  _2: f32,
+  isLeaf: f32,
+  leftOrTriangleIndex: f32,
+  right: f32,
+  _3: f32,
+}
+
 struct Node {
   offset: f32,
   count: f32,

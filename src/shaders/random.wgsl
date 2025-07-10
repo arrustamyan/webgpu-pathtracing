@@ -3,7 +3,7 @@ fn xorshift32(seed: ptr<function, u32>) -> u32
   *seed ^= *seed << 13;
   *seed ^= *seed >> 17;
   *seed ^= *seed << 5;
-  return * seed;
+  return *seed;
 }
 
 fn random_float(seed: ptr<function, u32>) -> f32
@@ -19,9 +19,9 @@ fn random_float_min_max(min: f32, max: f32, seed: ptr<function, u32>) -> f32
 fn random_unit_vector(seed: ptr<function, u32>) -> vec3f
 {
   while (true) {
-    var x = random_float_min_max(- 1.0, 1.0, seed);
-    var y = random_float_min_max(- 1.0, 1.0, seed);
-    var z = random_float_min_max(- 1.0, 1.0, seed);
+    var x = random_float_min_max(-1.0, 1.0, seed);
+    var y = random_float_min_max(-1.0, 1.0, seed);
+    var z = random_float_min_max(-1.0, 1.0, seed);
 
     var p = vec3f(x, y, z);
     var lenghtSq = length(p) * length(p);
