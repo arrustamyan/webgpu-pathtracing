@@ -31,7 +31,7 @@ struct AABBNode {
 struct Node {
   offset: f32,
   count: f32,
-  _1: f32,
+  textureIndex: i32,
   _2: f32,
   color: vec3f,
   _3: f32,

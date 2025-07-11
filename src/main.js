@@ -1,6 +1,7 @@
 import shaderConsts from './shaders/consts.wgsl?raw'
 import shaderStructs from './shaders/structs.wgsl?raw'
 import shaderRandom from './shaders/random.wgsl?raw'
+import shaderTexture from './shaders/texture.wgsl?raw'
 import shaderMain from './shaders/main.wgsl?raw'
 import { createCube } from './generator'
 import { loadImageBitmap } from './network'
@@ -12,10 +13,12 @@ const shaders = `
 ${shaderConsts}
 ${shaderStructs}
 ${shaderRandom}
+${shaderTexture}
 ${shaderMain}
 `
 
 let blueNoiseBitmap = await loadImageBitmap('/blue-noise.png')
+let concreteBitmap = await loadImageBitmap('/concrete.jpg')
 
 let sampleCount = new Uint32Array([0])
 
@@ -32,7 +35,8 @@ const cubeNodes = Array.from({ length: NUM_CUBES }, (_, i) => {
   const r = randomBetween(0, 1)
   const g = randomBetween(0, 1)
   const b = randomBetween(0, 1)
-  return [2 + 12 * i, 12, 0, 0, r, g, b, 0]
+  const textureIndex = randomBetween(0, 11)
+  return [2 + 12 * i, 12, textureIndex, 0, r, g, b, 0]
 })
 
 const triangles = [
@@ -56,13 +60,8 @@ let positions = new Float32Array(triangles)
 
 const indices = new Uint32Array(Array.from({ length: triangles.length / 24 }, (_, i) => i))
 
-const now = performance.now()
 const aabbTree = constructAABB(triangles, indices);
-console.log('AABB tree constructed in', performance.now() - now, 'ms')
 const aabb = new Float32Array(convertAABBTreeToArray(aabbTree));
-console.log('AABB buffer constructed in', performance.now() - now, 'ms')
-
-console.log('Tree:', aabb);
 
 const adapter = await navigator.gpu?.requestAdapter()
 const device = await adapter?.requestDevice()
@@ -166,6 +165,16 @@ const accumulationTextureRead = device.createTexture({
   usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
 })
 
+// Create a 2D texture array instead of individual textures
+// This uses only 1 binding instead of 18!
+const NUM_TEXTURES = 12;
+const textureArray = device.createTexture({
+  label: 'texture array',
+  format: 'rgba8unorm',
+  size: [concreteBitmap.width, concreteBitmap.height, NUM_TEXTURES],
+  usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+});
+
 const bindGroup = device.createBindGroup({
   label: 'bind group',
   layout: pipeline.getBindGroupLayout(0),
@@ -181,6 +190,14 @@ const bindGroup = device.createBindGroup({
   ],
 })
 
+const texturesBindGroup = device.createBindGroup({
+  label: 'textures bind group',
+  layout: pipeline.getBindGroupLayout(1),
+  entries: [
+    { binding: 0, resource: textureArray.createView() },
+  ],
+})
+
 device.queue.writeBuffer(positionsBuffer, 0, positions)
 device.queue.writeBuffer(aabbBuffer, 0, aabb)
 device.queue.writeBuffer(nodesBuffer, 0, nodes)
@@ -190,6 +207,19 @@ device.queue.copyExternalImageToTexture(
   { texture: blueNoiseTexture },
   { width: blueNoiseBitmap.width, height: blueNoiseBitmap.height },
 )
+
+// Copy the concrete texture to all layers of the texture array
+// In a real application, you'd load different textures for each layer
+for (let i = 0; i < NUM_TEXTURES; i++) {
+  device.queue.copyExternalImageToTexture(
+    { source: concreteBitmap, flipY: true },
+    { 
+      texture: textureArray,
+      origin: { x: 0, y: 0, z: i } // Specify which layer to copy to
+    },
+    { width: concreteBitmap.width, height: concreteBitmap.height },
+  )
+}
 
 function render() {
   sampleCount[0] += 1
@@ -202,6 +232,7 @@ function render() {
   const pass = encoder.beginRenderPass(renderPassDescriptor)
   pass.setPipeline(pipeline)
   pass.setBindGroup(0, bindGroup)
+  pass.setBindGroup(1, texturesBindGroup)
   pass.draw(3)
   pass.end()
 

@@ -7,6 +7,10 @@
 @group(0) @binding(8) var<storage, read> aabb: array<AABBNode>;
 @group(0) @binding(9) var<storage, read> nodes: array<Node>;
 
+// Using texture array instead of individual texture bindings
+// This reduces 18 bindings to just 1 binding!
+@group(1) @binding(0) var textureArray: texture_2d_array<f32>;
+
 fn get_ray(screenCoord: vec2f, seed: ptr<function, u32>) -> Ray
 {
   var ray: Ray;
@@ -31,7 +35,25 @@ fn surface_color(ray: Ray, rec: HitRecord) -> vec3f
     var node = nodes[i];
     // Check if the triangle index falls within this node's range
     if (rec.trangleIndex >= node.offset && rec.trangleIndex < node.offset + node.count) {
-      return node.color;
+      var trangleIndex = rec.trangleIndex;
+      var triangle = triangles[u32(trangleIndex)];
+      var p0uv = triangle.p0uv;
+      var p1uv = triangle.p1uv;
+      var p2uv = triangle.p2uv;
+
+      var alpha = rec.u;
+      var beta = rec.v;
+      var gamma = 1 - alpha - beta;
+
+      var localU = gamma * p0uv.x + alpha * p1uv.x + beta * p2uv.x;
+      var localV = gamma * p0uv.y + alpha * p1uv.y + beta * p2uv.y;
+
+      if (node.textureIndex == -1) {
+        // If textureIndex is 0, return the color directly
+        return node.color;
+      }
+
+      return sample_texture(node.textureIndex, vec2f(localU, localV), linearSampler).rgb;
     }
   }
 
