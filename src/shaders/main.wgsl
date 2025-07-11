@@ -2,6 +2,7 @@
 @group(0) @binding(1) var blueNoiseTexture: texture_2d<f32>;
 @group(0) @binding(2) var accumulationTextureWrite: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(3) var accumulationTextureRead: texture_2d<f32>;
+@group(0) @binding(4) var<uniform> camera: Camera;
 @group(0) @binding(6) var<uniform> sampleCount: u32;
 @group(0) @binding(7) var<storage, read> triangles: array<Triangle>;
 @group(0) @binding(8) var<storage, read> aabb: array<AABBNode>;
@@ -15,8 +16,10 @@ fn get_ray(screenCoord: vec2f, seed: ptr<function, u32>) -> Ray
 {
   var ray: Ray;
   var offset = vec2f(random_float(seed) - 0.5, random_float(seed) - 0.5);
-  var pixel = pixel00Location + pixelDeltaU * (screenCoord.x + offset.x) + pixelDeltaV * (screenCoord.y + offset.y);
-  ray.origin = lookFrom;
+  var pixel = camera.pixel00Location
+              + camera.pixelDeltaU * (screenCoord.x + offset.x)
+              + camera.pixelDeltaV * (screenCoord.y + offset.y);
+  ray.origin = camera.lookFrom;
   ray.direction = normalize(pixel - ray.origin);
 
   return ray;
@@ -257,7 +260,7 @@ fn hit(ray: Ray, rec: ptr<function, HitRecord>, interval: Interval) -> bool
 
 fn render_pixel(i: f32, j: f32, s: f32) -> vec4f
 {
-  var uv = vec2f(i / screenWidth, j / screenHeight);
+  var uv = vec2f(i / camera.screenWidth, j / camera.screenHeight);
   var sample = textureSample(blueNoiseTexture, linearSampler, uv);
   var seed: u32 = u32((sample.x + s) * 1000.0) * 1000000000u;
 
@@ -287,8 +290,9 @@ fn render_pixel(i: f32, j: f32, s: f32) -> vec4f
   }
 
   if (hitSomething && hitSky) {
-    // sampleColor *= sqrt(1 - pow(dot(lightDirection, ray.direction), 2));
-    sampleColor *= abs(dot(lightDirection, ray.direction));
+    var lightDir = normalize(lightDirection);
+    var lightWeight = 0.8 + max(0.0, dot(lightDir, rec.normal));
+    sampleColor *= lightWeight;
   }
 
   return vec4f(sampleColor, 1.0);

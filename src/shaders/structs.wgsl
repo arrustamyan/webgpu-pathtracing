@@ -37,6 +37,23 @@ struct Node {
   _3: f32,
 }
 
+struct Camera {
+  lookFrom: vec3f,
+  _0: f32,
+  lookAt: vec3f,
+  _1: f32,
+  pixelDeltaU: vec3f,
+  _2: f32,
+  pixelDeltaV: vec3f,
+  _3: f32,
+  pixel00Location: vec3f,
+  _4: f32,
+  screenWidth: f32,
+  screenHeight: f32,
+  _5: f32,
+  _6: f32,
+}
+
 struct Ray {
   origin: vec3f,
   direction: vec3f,

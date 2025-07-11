@@ -8,6 +8,7 @@ import { loadImageBitmap } from './network'
 import { randomBetween } from './random'
 import { constructAABB, convertAABBTreeToArray } from './aabb'
 import './style.css'
+import { Camera } from './camera'
 
 const shaders = `
 ${shaderConsts}
@@ -22,7 +23,7 @@ let concreteBitmap = await loadImageBitmap('/concrete.jpg')
 
 let sampleCount = new Uint32Array([0])
 
-const NUM_CUBES = 400
+const NUM_CUBES = 1
 
 const cubes = Array.from({ length: NUM_CUBES }, (_, i) => {
   const x = randomBetween(-5, 5)
@@ -79,6 +80,17 @@ canvas.height = window.innerHeight
 canvas.width = Math.max(1, Math.min(window.innerWidth, device.limits.maxTextureDimension2D))
 canvas.height = Math.max(1, Math.min(window.innerHeight, device.limits.maxTextureDimension2D))
 
+const camera = new Camera(
+  [0.0, 1.5, 1.0],
+  [0, 0, 0],
+  [0, 1, 0],
+  65,
+  canvas.width,
+  canvas.height,
+)
+camera.calculateVectors()
+const cameraAsBuffer = camera.getBuffer()
+
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat()
 context.configure({ device, format: presentationFormat })
 
@@ -118,6 +130,12 @@ const linearSampler = device.createSampler({
   addressModeV: 'repeat',
   magFilter: 'linear',
   minFilter: 'linear',
+})
+
+const cameraBuffer = device.createBuffer({
+  label: 'camera buffer',
+  size: cameraAsBuffer.byteLength,
+  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 })
 
 const sampleCountBuffer = device.createBuffer({
@@ -183,6 +201,7 @@ const bindGroup = device.createBindGroup({
     { binding: 1, resource: blueNoiseTexture.createView() },
     { binding: 2, resource: accumulationTextureWrite.createView({}) },
     { binding: 3, resource: accumulationTextureRead.createView({}) },
+    { binding: 4, resource: { buffer: cameraBuffer } },
     { binding: 6, resource: { buffer: sampleCountBuffer } },
     { binding: 7, resource: { buffer: positionsBuffer } },
     { binding: 8, resource: { buffer: aabbBuffer } },
@@ -198,6 +217,7 @@ const texturesBindGroup = device.createBindGroup({
   ],
 })
 
+device.queue.writeBuffer(cameraBuffer, 0, cameraAsBuffer)
 device.queue.writeBuffer(positionsBuffer, 0, positions)
 device.queue.writeBuffer(aabbBuffer, 0, aabb)
 device.queue.writeBuffer(nodesBuffer, 0, nodes)
@@ -249,7 +269,7 @@ function render() {
   device.queue.onSubmittedWorkDone().then(() => {
     // After the work is done, we can request the next frame
     if (sampleCount <= 100) {
-      requestAnimationFrame(render)
+      // requestAnimationFrame(render)
     }
     console.log('Frame rendered', performance.now() - now, 'ms')
   })
